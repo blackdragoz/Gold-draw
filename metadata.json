@@ -1,0 +1,6 @@
+{
+  "name": "Golden Draw",
+  "description": "An engaging premium lottery application UI/UX, featuring simulated Google sign-in, secure ticket purchase with UPI QR code, and interactive administrator control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the user is the specific admin by UID
+    function isAdmin() {
+      return isAuthenticated() && request.auth.uid == '5su9L3gQochvbkXI72GoHoddhjF2';
+    }
+
+    // User Collection Rules
+    match /users/{userId} {
+      // Any authenticated user can read profiles (e.g. to see referral/who bought tickets)
+      // or we can restrict it so users can read any profile, but only write/update theirs
+      allow read: if isAuthenticated();
+      // A user can create their own profile when signing in for the first time
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // A user can update their own profile (decrementing coins, getting referral bonuses)
+      // Admins can update any user profile (crediting coins)
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+    }
+
+    // Ticket Collection Rules
+    match /tickets/{ticketId} {
+      // Authenticated users can read all tickets
+      allow read: if isAuthenticated();
+      // Authenticated users can create tickets, but only for themselves (matching their auth email)
+      allow create: if isAuthenticated() && (
+        request.resource.data.userEmail == request.auth.token.email || 
+        isAdmin()
+      );
+      // Only admins can update status or delete tickets
+      allow update, delete: if isAdmin();
+    }
+
+    // DrawState Rules (Live draw synchronization)
+    match /drawState/{docId} {
+      // Anyone (even guest/landing page) can read the winning number
+      allow read: if true;
+      // Only admin is authorized to roll, trigger, or reset the lucky draw
+      allow write: if isAdmin();
+    }
+
+    // PastWinners Rules (Historical draw results)
+    match /pastWinners/{winnerId} {
+      // Everyone can read the drawing history
+      allow read: if true;
+      // Only admin can post new drawing history logs or clear logs
+      allow write: if isAdmin();
+    }
+
+    // CoinTransactions Rules (Audit history logs for coin changes)
+    match /coinTransactions/{txId} {
+      // Users can only view their own coin transaction logs, admins can see all
+      allow read: if isAuthenticated() && (resource.data.userEmail == request.auth.token.email || isAdmin());
+      // Authenticated users can write log when they spend/earn coins, admins can write anything
+      allow create: if isAuthenticated() && (request.resource.data.userEmail == request.auth.token.email || isAdmin());
+      // Normal users cannot modify or erase logs
+      allow update, delete: if isAdmin();
+    }
+  }
+}
